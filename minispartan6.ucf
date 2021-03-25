@@ -1,0 +1,64 @@
+# Clocks
+NET "CLK50_I" PERIOD = 20 ns | LOC = K3;
+#NET "CLK32" PERIOD = 31.25 ns | LOC = "J4";
+
+# Audio Pins
+#NET "audio_l_o" LOC = B8 | IOSTANDARD = LVTTL;
+#NET "audio_r_o" LOC = A8 | IOSTANDARD = LVTTL;
+
+# LED pins
+NET "led_o<0>" LOC = P11 | IOSTANDARD = LVCMOS33;
+NET "led_o<1>" LOC = N9 | IOSTANDARD = LVCMOS33;
+NET "led_o<2>" LOC = M9 | IOSTANDARD = LVCMOS33;
+NET "led_o<3>" LOC = P9 | IOSTANDARD = LVCMOS33;
+NET "led_o<4>" LOC = T8 | IOSTANDARD = LVCMOS33;
+NET "led_o<5>" LOC = N8 | IOSTANDARD = LVCMOS33;
+NET "led_o<6>" LOC = P8 | IOSTANDARD = LVCMOS33;
+NET "led_o<7>" LOC = P7 | IOSTANDARD = LVCMOS33;
+
+# ULPI (on port C and B11)
+NET  "ulpi_data_io<0>"	LOC = "M14" ; # C5
+NET  "ulpi_data_io<1>"	LOC = "L13" ; # C4
+NET  "ulpi_data_io<2>"	LOC = "L14" ; # C3
+NET  "ulpi_data_io<3>"	LOC = "K14" ; # C2
+NET  "ulpi_data_io<4>"	LOC = "J12" ; # C1
+NET  "ulpi_data_io<5>"	LOC = "M13" ; # C6
+NET  "ulpi_data_io<6>"	LOC = "M12" ; # C8
+NET  "ulpi_data_io<7>"	LOC = "P12" ; # C10
+NET  "ulpi_rst_o"		LOC = "J14" ; # B11 
+NET  "ulpi_stp_o"		LOC = "M11" ; # C11
+NET  "ulpi_nxt_i"		LOC = "N12" ; # C9
+NET  "ulpi_dir_i"		LOC = "N14" ; # C7
+NET  "ulpi_clk60_i"		LOC = "J13" ; # C0
+
+NET "ulpi_data_io<*>"   IOSTANDARD = LVCMOS33 | DRIVE = 12 | SLEW = FAST;
+NET  "ulpi_rst_o"		IOSTANDARD = LVCMOS33 | DRIVE = 12 | SLEW = FAST;    
+NET  "ulpi_stp_o"	    IOSTANDARD = LVCMOS33 | DRIVE = 12 | SLEW = FAST;
+NET  "ulpi_nxt_i"       IOSTANDARD = LVCMOS33 | DRIVE = 12 | SLEW = FAST;
+NET  "ulpi_dir_i"       IOSTANDARD = LVCMOS33 | DRIVE = 12 | SLEW = FAST;
+NET  "ulpi_clk60_i"     IOSTANDARD = LVCMOS33 | DRIVE = 12 | SLEW = FAST;
+
+# INST "ulpi_data_io<0>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<1>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<2>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<3>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<4>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<5>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<6>" TNM = USB_ULPI_OUT;
+# INST "ulpi_data_io<7>" TNM = USB_ULPI_OUT;
+# INST "ulpi_stp_o" TNM = USB_ULPI_OUT;
+# INST "ulpi_rst_o" TNM = USB_ULPI_OUT;
+# TIMEGRP "USB_ULPI_OUT" OFFSET = OUT 8.5 ns AFTER usb_clk60_i;
+# INST "ulpi_data_io<0>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<1>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<2>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<3>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<4>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<5>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<6>" TNM = USB_ULPI_IN;
+# INST "ulpi_data_io<7>" TNM = USB_ULPI_IN;
+# INST "ulpi_nxt_i" TNM = USB_ULPI_IN;
+# INST "ulpi_dir_i" TNM = USB_ULPI_IN;
+# TIMEGRP "USB_ULPI_IN" OFFSET = IN 13.666 ns BEFORE usb_clk60_i;  #3ns at ULPI PHY output, period 16.6ns
+
+

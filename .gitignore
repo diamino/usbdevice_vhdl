@@ -1,0 +1,89 @@
+# intermediate build files
+*.bgn
+*.bit
+*.bld
+*.cmd_log
+*.drc
+*.ll
+*.lso
+*.msd
+*.msk
+*.ncd
+*.ngc
+*.ngd
+*.ngr
+*.pad
+*.par
+*.pcf
+*.prj
+*.ptwx
+*.rbb
+*.rbd
+*.stx
+*.syr
+*.twr
+*.twx
+*.unroutes
+*.ut
+*.xpi
+*.xst
+*_bitgen.xwbt
+*_envsettings.html
+*_map.map
+*_map.mrp
+*_map.ngm
+*_map.xrpt
+*_ngdbuild.xrpt
+*_pad.csv
+*_pad.txt
+*_par.xrpt
+*_summary.html
+*_summary.xml
+*_usage.xml
+*_xst.xrpt
+output.txt
+
+# iMPACT generated files
+_impactbatch.log
+impact.xsl
+impact_impact.xwbt
+ise_impact.cmd
+webtalk_impact.xml
+
+# Core Generator generated files
+xaw2verilog.log
+
+# PlanAhead generated files
+planAhead_*.debug
+pa.*.tcl
+planAhead.*.log
+planAhead_run_*/
+
+# isim generated files
+isim.cmd
+isim.log
+*_isim_beh.exe
+*_isim_beh.wdb
+xilinxsim.ini
+isim/
+
+# FPGA editor files
+*_fpga_editor.log
+
+# project-wide generated files
+*.gise
+par_usage_statistics.html
+usage_statistics_webtalk.html
+webtalk.log
+webtalk_pn.xml
+fuse.log
+fuse.xmsgs
+fuseRelaunch.cmd
+
+# generated folders
+iseconfig/
+work/
+xlnx_auto_0_xdb/
+xst/
+_ngo/
+_xmsgs/
