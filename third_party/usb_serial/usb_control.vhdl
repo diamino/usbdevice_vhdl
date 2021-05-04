@@ -216,20 +216,21 @@ architecture usb_control_arch of usb_control is
     constant req_getconf :      std_logic_vector(3 downto 0) := "1000";
     constant req_setconf :      std_logic_vector(3 downto 0) := "1001";
     constant req_getiface :     std_logic_vector(3 downto 0) := "1010";
+    constant req_getmaxlun :    std_logic_vector(7 downto 0) := x"FE";
 
     -- State machine
     type t_state is (
       ST_IDLE, ST_STALL,
-      ST_SETUP, ST_SETUPERR, ST_NONSTANDARD, ST_ENDSETUP, ST_WAITIN,
-      ST_SENDRESP, ST_STARTDESC, ST_SENDDESC, ST_DONESEND );
+      ST_SETUP, ST_SETUPERR, ST_CLASS, ST_NONSTANDARD, ST_ENDSETUP, ST_ENDCLSSETUP,
+      ST_WAITIN, ST_SENDRESP, ST_STARTDESC, ST_SENDDESC, ST_DONESEND );
     signal s_state : t_state := ST_IDLE;
 
     -- Current control request
-    signal s_ctlrequest :   std_logic_vector(3 downto 0);
-    signal s_ctlparam :     std_logic_vector(7 downto 0);
-    signal s_desctyp :      std_logic_vector(2 downto 0);
-    signal s_answerlen :    unsigned(7 downto 0);
-    signal s_sendbyte :     std_logic_vector(7 downto 0) := "00000000";
+    signal s_ctlrequest :       std_logic_vector(7 downto 0);
+    signal s_ctlparam :         std_logic_vector(7 downto 0);
+    signal s_desctyp :          std_logic_vector(2 downto 0);
+    signal s_answerlen :        unsigned(7 downto 0);
+    signal s_sendbyte :         std_logic_vector(7 downto 0) := "00000000";
 
     -- Device state
     signal s_addr :         std_logic_vector(6 downto 0) := "0000000";
@@ -319,25 +320,28 @@ begin
                             when "000" =>
                                 -- bmRequestType
                                 s_ctlparam <= T_RXDAT;
-                                if T_RXDAT(6 downto 5) /= "00" then
+                                if T_RXDAT(6 downto 5) = "01" then
+                                    -- class request
+                                    s_state <= ST_CLASS;
+                                elsif T_RXDAT(6 downto 5) /= "00" then
                                     -- non-standard device request
                                     s_state <= ST_NONSTANDARD;
                                 end if;
                             when "001" =>
                                 -- bRequest
-                                s_ctlrequest <= T_RXDAT(3 downto 0);
+                                s_ctlrequest <= T_RXDAT;
                                 if T_RXDAT(7 downto 4) /= "0000" then
                                     -- Unknown request
                                     s_state <= ST_SETUPERR;
                                 end if;
                             when "010" =>
                                 -- wValue lsb
-                                if s_ctlrequest /= req_getstatus then
+                                if s_ctlrequest(3 downto 0) /= req_getstatus then
                                     s_ctlparam <= T_RXDAT;
                                 end if;
                             when "011" =>
                                 -- wValue msb
-                                if s_ctlrequest = req_getdesc then
+                                if s_ctlrequest(3 downto 0) = req_getdesc then
                                     if T_RXDAT(7 downto 3) /= "00000" then
                                         -- Unsupported descriptor type
                                         s_state <= ST_SETUPERR;
@@ -347,7 +351,7 @@ begin
                                 s_desctyp <= T_RXDAT(2 downto 0);
                             when "100" =>
                                 -- wIndex lsb
-                                case s_ctlrequest is
+                                case s_ctlrequest(3 downto 0) is
                                     when req_clearfeature =>
                                         if s_ctlparam = "00000000" then
                                             -- Clear ENDPOINT_HALT feature;
@@ -407,13 +411,61 @@ begin
                         s_state <= ST_IDLE;
                     end if;
 
-		when ST_SETUPERR =>
+		        when ST_SETUPERR =>
                     -- In SETUP transaction; got request error
                     if T_FIN = '1' then
                         -- Got good SETUP packet that causes request error
                         s_state <= ST_STALL;
                     elsif T_SETUP = '0' then
                         -- Got corrupt SETUP packet; ignore
+                        s_state <= ST_IDLE;
+                    end if;
+
+                when ST_CLASS =>
+                    -- In SETUP transaction for Class request; parse remaining request structure.
+                    s_answerptr <= to_unsigned(0, s_answerptr'length);
+                    if T_RXRDY = '1' then
+                        -- Process next request byte
+                        case s_setupptr is
+                            when "001" =>
+                                -- bRequest
+                                s_ctlrequest <= T_RXDAT;
+                                if T_RXDAT /= req_getmaxlun then
+                                    -- Unknown request
+                                    s_state <= ST_SETUPERR;
+                                end if;
+                            when "010" =>
+                                -- wValue lsb
+                                -- ignore wValue
+                            when "011" =>
+                                -- wValue msb
+                                -- ignore wValue
+                            when "100" =>
+                                -- wIndex lsb
+                                s_ctlparam <= T_RXDAT;
+                                s_sendbyte <= "00000000";
+                            when "101" =>
+                                -- wIndex msb; don't care
+                            when "110" =>
+                                -- wLength lsb
+                                -- for GetMaxLUN this should be 1
+                                s_answerlen <= unsigned(T_RXDAT);
+                            when "111" =>
+                                -- wLength msb
+                                if T_RXDAT /= "00000000" then
+                                    s_answerlen <= "11111111";
+                                end if;
+                                s_state <= ST_ENDCLSSETUP;
+                            when others =>
+                                -- Impossible
+                        end case;
+                        -- Increment position within SETUP packet
+                        s_setupptr <= s_setupptr + 1;
+                    elsif T_FIN = '1' then
+                        -- Got short SETUP packet; answer with STALL status.
+                        s_state <= ST_STALL;
+                    elsif T_SETUP = '0' then
+                        -- Got corrupt SETUP packet; ignore.
                         s_state <= ST_IDLE;
                     end if;
 
@@ -426,8 +478,8 @@ begin
                 when ST_ENDSETUP =>
                     -- Parsed request packet; wait for end of SETUP transaction
                     if T_FIN = '1' then
-                        -- Got complet SETUP packet; handle it
-                        case s_ctlrequest is
+                        -- Got complete SETUP packet; handle it
+                        case s_ctlrequest(3 downto 0) is
                             when req_getstatus =>
                                 -- Prepare status byte and move to data stage
                                 -- If s_ctlparam = 0, the status byte has already
@@ -498,6 +550,25 @@ begin
                         s_state <= ST_IDLE;
                     end if;
 
+                when ST_ENDCLSSETUP =>
+                    -- Parsed class request packet; wait for end of SETUP transaction
+                    if T_FIN = '1' then
+                        -- Got complete SETUP class packet; handle it
+                        case s_ctlrequest is
+                            when req_getmaxlun =>
+                                -- The status byte has already
+                                -- been prepared in state ST_CLASS.
+                                -- Move to data stage
+                                s_state <= ST_WAITIN;
+                            when others =>
+                                -- Unsupported request
+                                s_state <= ST_STALL;
+                        end case;
+                    elsif T_SETUP = '0' then
+                        -- Got corrupt SETUP packet; ignore
+                        s_state <= ST_IDLE;
+                    end if;
+
                 when ST_WAITIN =>
                     -- Got valid SETUP packet; waiting for IN transaction.
                     s_answerptr(5 downto 0) <= "000000";
@@ -508,24 +579,27 @@ begin
                     elsif T_IN = '1' then
                         -- Start of IN transaction; respond to the request
                         case s_ctlrequest is
-                            when req_getstatus =>
+                            when x"0" & req_getstatus =>
                                 -- Respond with status byte, followed by zero byte.
                                 s_state <= ST_SENDRESP;
-                            when req_setaddress =>
+                            when x"0" & req_setaddress =>
                                 -- Effectuate change of device address
                                 s_addr <= s_ctlparam(6 downto 0);
                                 s_state <= ST_IDLE;
-                            when req_getdesc =>
+                            when x"0" & req_getdesc =>
                                 -- Respond with descriptor
                                 s_state <= ST_STARTDESC;
-                            when req_getconf =>
+                            when x"0" & req_getconf =>
                                 -- Respond with current configuration
                                 s_sendbyte  <= "0000000" & s_confd;
                                 s_state     <= ST_SENDRESP;
-                            when req_getiface =>
+                            when x"0" & req_getiface =>
                                 -- Respond with zero byte
                                 s_sendbyte  <= "00000000";
                                 s_state     <= ST_SENDRESP;
+                            when req_getmaxlun =>
+                                -- Respond with response byte, followed by zero byte.
+                                s_state <= ST_SENDRESP;
                             when others =>
                                 -- Impossible
                         end case;
